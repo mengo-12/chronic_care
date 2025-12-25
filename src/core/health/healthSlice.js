@@ -1,8 +1,9 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSelector, createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   patientProfile: {
     name: "",
+    age: null,
     chronicConditions: [],
     emergencyContact: {},
   },
@@ -28,73 +29,61 @@ const healthSlice = createSlice({
   },
 });
 
-// Selector إضافي لتسهيل الفلترة حسب النوع
-// export const selectTimelineByType = (state, type) => {
-//   if (!type) return state.health.timeline; // كل الأحداث إذا لم يحدد النوع
-//   return state.health.timeline.filter((event) => event.type === type);
-// };
-
+// Selectors
 export const selectTimelineByType = (type) => (state) => {
   if (!type) return state.health.timeline;
   return state.health.timeline.filter((event) => event.type === type);
 };
 
-
-export const {
-  setProfile,
-  addTimelineEvent,
-  clearTimeline,
-} = healthSlice.actions;
+export const { setProfile, addTimelineEvent, clearTimeline } =
+  healthSlice.actions;
 
 export default healthSlice.reducer;
-
 
 // جميع نوبات الصرع
 export const selectSeizures = (state) =>
   state.health.timeline.filter((e) => e.type === "seizure");
 
-// ملخص نوبات الصرع (للطبيب والذكاء الاصطناعي)
-export const selectSeizureStats = (state) => {
-  const seizures = state.health.timeline.filter(
-    (e) => e.type === "seizure"
-  );
+// ملخص نوبات الصرع مع memoization
+export const selectSeizureStats = createSelector(
+  [selectSeizures],
+  (seizures) => {
+    if (seizures.length === 0) {
+      return {
+        count: 0,
+        lastDate: null,
+        avgSeverity: null,
+        status: "مستقرة",
+      };
+    }
 
-  if (seizures.length === 0) {
+    const severities = seizures
+      .map((s) => s.data?.severity)
+      .filter((v) => typeof v === "number");
+
+    const avgSeverity =
+      severities.length > 0
+        ? severities.reduce((a, b) => a + b, 0) / severities.length
+        : null;
+
     return {
-      count: 0,
-      lastDate: null,
-      avgSeverity: null,
-      status: "مستقرة",
+      count: seizures.length,
+      lastDate: seizures[0].date,
+      avgSeverity: avgSeverity ? avgSeverity.toFixed(1) : null,
+      status:
+        seizures.length >= 6
+          ? "غير مستقرة"
+          : seizures.length >= 3
+          ? "تحت المراقبة"
+          : "مستقرة",
     };
   }
-
-  const severities = seizures
-    .map((s) => s.data?.severity)
-    .filter((v) => typeof v === "number");
-
-  const avgSeverity =
-    severities.length > 0
-      ? severities.reduce((a, b) => a + b, 0) / severities.length
-      : null;
-
-  return {
-    count: seizures.length,
-    lastDate: seizures[0].date, // لأننا نضيف الأحدث أولاً
-    avgSeverity: avgSeverity ? avgSeverity.toFixed(1) : null,
-    status:
-      seizures.length >= 6
-        ? "غير مستقرة"
-        : seizures.length >= 3
-        ? "تحت المراقبة"
-        : "مستقرة",
-  };
-};
+);
 
 // تقييم صحي عام (مدخل AI مستقبلاً)
-export const selectHealthStatus = (state) => {
-  const stats = selectSeizureStats(state);
-
-  return {
+export const selectHealthStatus = createSelector(
+  [selectSeizureStats],
+  (stats) => ({
     riskLevel:
       stats.status === "غير مستقرة"
         ? "high"
@@ -105,5 +94,5 @@ export const selectHealthStatus = (state) => {
       stats.status === "غير مستقرة"
         ? "مراجعة الطبيب بشكل عاجل"
         : "الاستمرار في المتابعة",
-  };
-};
+  })
+);
