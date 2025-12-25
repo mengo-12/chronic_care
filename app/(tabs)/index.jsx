@@ -136,7 +136,9 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
+import HealthSummaryCard from "../../src/components/HealthSummaryCard";
 import { addTimelineEvent, selectTimelineByType } from "../../src/core/health/healthSlice";
+
 
 export default function HomeScreen() {
   const dispatch = useDispatch();
@@ -215,6 +217,8 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, padding: 16, backgroundColor:"#f9f9f9" }}>
+
+      <HealthSummaryCard />
 
       {/* بطاقة بيانات المريض */}
       <View style={{
